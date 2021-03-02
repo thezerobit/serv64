@@ -1,31 +1,36 @@
 (ns serv64.core
-  (:use serv64.actions serv64.utils)
+  (:use serv64.servers serv64.utils serv64.protocols)
   (:import
     [io.netty.buffer ByteBuf Unpooled]
     [io.netty.channel ChannelInboundHandlerAdapter ChannelInitializer ChannelOption ChannelFutureListener]
     [io.netty.bootstrap ServerBootstrap]
     [io.netty.channel.nio NioEventLoopGroup]
     [io.netty.channel.socket.nio NioServerSocketChannel]
-    [serv64.actions Menu]))
+    [java.io File FileFilter]))
 
-; mostly messy I/O operations and top-level interpretation of Actions goes here
+; mostly messy I/O operations and action interpreter
+
+(defn get-files []
+  "returns an array of java.io.File objects"
+  (vec (.listFiles (File. "files") (proxy [FileFilter] [] (accept [dir] (.isFile dir))))))
+
+(defn get-file-listing []
+  (let [file-names (map #(.getName %) (get-files))]
+    (str (clojure.string/join "\n" file-names) "\n")))
 
 (defn write-output [ctx output]
   (.writeAndFlush ctx (Unpooled/wrappedBuffer (to-byte-array output))))
 
-(defn write-and-close [ctx output]
-  (.addListener (write-output ctx output)
-                (proxy [ChannelFutureListener] []
-                  (operationComplete [f] (.close ctx)))))
-
-(defn do-update [state-agent in-byte ctx]
-  (swap! state-agent
-         (fn [state]
-           (let [action (recv state in-byte (System/nanoTime))]
-             (case (:action action)
-               :update (do (write-output ctx (:output action)) (:state action))
-               :disconnect (do (write-and-close ctx (:output action)) (:state action))
-               :ignore state)))))
+(defn do-update [server-stack in-byte ctx]
+  "call the recv function on the current server and interpret the actions"
+  (let [actions (recv (last @server-stack) in-byte (System/nanoTime))]
+    (doseq [[action value] actions]
+      (case action
+        :send (write-output ctx value)
+        :push (swap! server-stack #(conj % value))
+        :pop (swap! server-stack pop)
+        :list-files (write-output ctx (get-file-listing))
+        :disconnect (.close ctx)))))
 
 (defn do-updates [state-agent ^ByteBuf msg ctx]
   (while (.isReadable msg)
@@ -34,16 +39,14 @@
 (defn make-handler
   "Create a ChannelInboundHandlerAdaptor instance to handle inbound tcp connections"
   []
-  (let [menu-state (atom nil)]
+  (let [server-stack (atom [main-menu])]
     (proxy [ChannelInboundHandlerAdapter] []
       (channelActive [ctx]
         (println "channelActive")
-        (swap! menu-state (fn [ignored]
-                            (write-output ctx main-menu-text)
-                            (Menu. :main))))
+        (write-output ctx main-menu-text))
       (channelRead [ctx ^ByteBuf msg]
         (println "channelRead")
-        (do-updates menu-state msg ctx))
+        (do-updates server-stack msg ctx))
       (channelInactive [ctx]
         (println "channelInactive"))
       (exceptionCaught [ctx cause]
@@ -74,8 +77,7 @@
              (.sync)))
        (finally
          (.shutdownGracefully worker-group)
-         (.shutdownGracefully boss-group))))
-    ))
+         (.shutdownGracefully boss-group))))))
 
 (defn -main []
   (println "Starting server.")
