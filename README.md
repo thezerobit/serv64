@@ -1,10 +1,28 @@
 # serv64
 
-A simple TCP server.
+A simple BBS-like telnet server.
+
+## Implementation Notes
+
+How to write a functional stateful server?
+
+When a byte is received, call an update function that takes
+the current state and the byte received and a timestamp and
+returns some data that instructs the program
+whether to do nothing (:ignore), update the state (:update),
+or disconnect (:disconnect) and also whether to send any
+data back to the client or not. This update function is purely
+functional and therefore easy to fully test with unit tests.
 
 ## Usage
 
-TODO
+To start a server on port 8080:
+
+    lein run
+    
+Telnet to this port to test it out:
+
+    telnet localhost 8080
 
 ## License
 
