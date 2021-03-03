@@ -14,9 +14,13 @@
   "returns an array of java.io.File objects"
   (vec (.listFiles (File. "files") (proxy [FileFilter] [] (accept [dir] (.isFile dir))))))
 
+(defn get-file-names []
+  (sort (map #(.getName %) (get-files))))
+
 (defn get-file-listing []
-  (let [file-names (map #(.getName %) (get-files))]
-    (str (clojure.string/join "\n" file-names) "\n")))
+  (let [file-names (get-file-names)
+        lines (map-indexed (fn [idx file-name] (format "%4d. %s\n" (+ 1 idx) file-name)) file-names)]
+    (clojure.string/join lines)))
 
 (defn write-output [ctx output]
   (.writeAndFlush ctx (Unpooled/wrappedBuffer (to-byte-array output))))
