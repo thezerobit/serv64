@@ -3,7 +3,7 @@
 ; the protocol that represents a functional interface for
 ; a stateful server
 (defprotocol ByteServer
-  (recv [state in-byte timestamp] "returns an ordered collection of actions"))
+  (recv [state msgBytes timestamp] "returns an ordered collection of actions"))
 
 ; known actions:
 ; [:disconnect] server should disconnect immediately

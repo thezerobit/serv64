@@ -1,5 +1,5 @@
 (ns serv64.core
-  (:use serv64.servers serv64.utils serv64.protocols)
+  (:use serv64.menu serv64.utils serv64.protocols)
   (:import
     [io.netty.buffer ByteBuf Unpooled]
     [io.netty.channel ChannelInboundHandlerAdapter ChannelInitializer ChannelOption ChannelFutureListener]
@@ -21,20 +21,18 @@
 (defn write-output [ctx output]
   (.writeAndFlush ctx (Unpooled/wrappedBuffer (to-byte-array output))))
 
-(defn do-update [server-stack in-byte ctx]
+(defn do-updates [server-stack ^ByteBuf msg ctx]
   "call the recv function on the current server and interpret the actions"
-  (let [actions (recv (last @server-stack) in-byte (System/nanoTime))]
-    (doseq [[action value] actions]
-      (case action
-        :send (write-output ctx value)
-        :push (swap! server-stack #(conj % value))
-        :pop (swap! server-stack pop)
-        :list-files (write-output ctx (get-file-listing))
-        :disconnect (.close ctx)))))
-
-(defn do-updates [state-agent ^ByteBuf msg ctx]
-  (while (.isReadable msg)
-    (do-update state-agent (.readByte msg) ctx)))
+  (let [msgBytes (byte-array (.readableBytes msg))]
+    (.readBytes msg msgBytes)
+    (let [actions (recv (last @server-stack) msgBytes (System/nanoTime))]
+      (doseq [[action value] actions]
+        (case action
+          :send (write-output ctx value)
+          :push (swap! server-stack #(conj % value))
+          :pop (swap! server-stack pop)
+          :list-files (write-output ctx (get-file-listing))
+          :disconnect (.close ctx))))))
 
 (defn make-handler
   "Create a ChannelInboundHandlerAdaptor instance to handle inbound tcp connections"
