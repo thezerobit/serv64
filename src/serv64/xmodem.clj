@@ -91,7 +91,7 @@
                                (let [bytes-left (remaining-bytes file-bytes (dec chunk-idx))]
                                  [[:send (make-chunk file-bytes (dec chunk-idx) bytes-left)]
                                   [:replace (assoc xmodem
-                                              :timeout (+ (:timeout xmodem) (seconds-to-nanos 60))
+                                              :timeout (+ timestamp (seconds-to-nanos 60))
                                               :retries (inc retries))]])
                                [[:pop]])
                              ; <ack> -> send next chunk
@@ -99,7 +99,7 @@
                              (if (> bytes-left 0)
                                [[:send (make-chunk file-bytes chunk-idx bytes-left)]
                                 [:replace (assoc xmodem :state :next
-                                                        :timeout (+ (:timeout xmodem) (seconds-to-nanos 60))
+                                                        :timeout (+ timestamp (seconds-to-nanos 60))
                                                         :retries 0)]]
                                [[:send eot]
                                 [:replace (assoc xmodem :state :final :retries 0)]]))
