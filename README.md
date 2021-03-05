@@ -1,18 +1,18 @@
 # serv64
 
-A simple BBS-like telnet server.
+A simple BBS-like telnet server that supports XMODEM downloads.
 
 ## Implementation Notes
 
 How to write a functional stateful server?
 
-When a byte is received, call an update function that takes
-the current state and the byte received and a timestamp and
-returns some data that instructs the program
-whether to do nothing (:ignore), update the state (:update),
-or disconnect (:disconnect) and also whether to send any
-data back to the client or not. This update function is purely
-functional and therefore easy to fully test with unit tests.
+When some bytes are received, call an update function that takes
+the current state and the bytes received and a timestamp and
+returns some data that represents a series of stateful actions
+including sending data back and changing the state of the server.
+The top-level interpreter executes stateful changes based on these
+actions, but the stateless, functional servers can be unit tested with
+ease.
 
 ## Usage
 
